@@ -515,14 +515,33 @@ namespace Hebron
 
 		public static string GetTokenLiteral(this CXCursor cursor)
 		{
-			var tokens = cursor.TranslationUnit.Tokenize(cursor.SourceRange);
+			// Try cursor spelling first — works for most cases and is immune
+			// to clang returning an incorrect cursor extent.
+			var spelling = cursor.Spelling.ToString();
+			if (!string.IsNullOrEmpty(spelling))
+			{
+				return spelling;
+			}
 
-			Debug.Assert(tokens.Length == 1);
-			Debug.Assert(tokens[0].Kind == CXTokenKind.CXToken_Literal);
+			// clang_getCursorExtent is unreliable for tokens that originate
+			// from a macro body (not macro arguments) — it can return an
+			// extent whose end is EOF, spanning thousands of tokens.
+			// Instead, use clang_getToken to get the precise token at the
+			// cursor's source location without depending on the extent.
+			var location = clang.getCursorLocation(cursor);
 
-			var spelling = tokens[0].GetSpelling(cursor.TranslationUnit).ToString();
-			spelling = spelling.Trim('\\', '\r', '\n');
-			return spelling;
+			unsafe
+			{
+				var token = clang.getToken(cursor.TranslationUnit, location);
+				if (token != null)
+				{
+					var result = clang.getTokenSpelling(cursor.TranslationUnit, *token).ToString();
+					clang.disposeTokens(cursor.TranslationUnit, token, 1);
+					return result;
+				}
+			}
+
+			return string.Empty;
 		}
 
 		public unsafe static string[] Tokenize(this CXCursor cursor)

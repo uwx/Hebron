@@ -239,7 +239,7 @@ namespace Hebron.Roslyn
 				}
 			}
 
-			if (typeInfo.IsPointer && right.Deparentize() == "0")
+			if (typeInfo.IsPointer && (right.Deparentize() == "0" || string.IsNullOrEmpty(right.Deparentize())))
 			{
 				right = "null";
 			}
@@ -505,7 +505,7 @@ namespace Hebron.Roslyn
 						}
 
 						if (a.IsPointer && (type == CXBinaryOperatorKind.CXBinaryOperator_Assign || type.IsBooleanOperator()) &&
-							(b.Expression.Deparentize() == "0"))
+							(b.Expression.Deparentize() == "0" || string.IsNullOrEmpty(b.Expression.Deparentize())))
 						{
 							b.Expression = "null";
 						}
@@ -561,7 +561,7 @@ namespace Hebron.Roslyn
 							{
 								argExpr.Expression = argExpr.Expression.ApplyCast(argExpr.CsType);
 							}
-							else if (argExpr.Expression.Deparentize() == "0")
+							else if (argExpr.Expression.Deparentize() == "0" || string.IsNullOrEmpty(argExpr.Expression.Deparentize()))
 							{
 								argExpr.Expression = "null";
 							}
@@ -598,7 +598,7 @@ namespace Hebron.Roslyn
 							}
 						}
 
-						if (tt.IsPointer && ret.Deparentize() == "0")
+						if (tt.IsPointer && (ret.Deparentize() == "0" || string.IsNullOrEmpty(ret.Deparentize())))
 						{
 							ret = "null";
 						}
@@ -961,9 +961,9 @@ namespace Hebron.Roslyn
 						var tt = info.ToTypeInfo();
 						var csType = ToRoslynString(tt);
 
-						if (expr == "0" && tt.IsPointer)
+						if ((expr == "0" || string.IsNullOrEmpty(expr)) && tt.IsPointer)
 						{
-							// null
+							expr = "null";
 						} else if (csType != child.CsType)
 						{
 							// cast
@@ -986,7 +986,8 @@ namespace Hebron.Roslyn
 						var expr = ProcessChildByIndex(info, size - 1);
 
 						var typeInfo = info.ToTypeInfo();
-						if (typeInfo.IsPointer && expr.Expression.Deparentize() == "0")
+						var depExpr = expr.Expression.Deparentize();
+						if (typeInfo.IsPointer && (depExpr == "0" || string.IsNullOrEmpty(depExpr)))
 						{
 							expr.Expression = "null";
 						}
