@@ -523,22 +523,33 @@ namespace Hebron
 				return spelling;
 			}
 
-			// clang_getCursorExtent is unreliable for tokens that originate
-			// from a macro body (not macro arguments) — it can return an
-			// extent whose end is EOF, spanning thousands of tokens.
-			// Instead, use clang_getToken to get the precise token at the
-			// cursor's source location without depending on the extent.
-			var location = clang.getCursorLocation(cursor);
+			// Try clang_getToken for a precise token at the cursor location.
+			var loc = clang.getCursorLocation(cursor);
 
 			unsafe
 			{
-				var token = clang.getToken(cursor.TranslationUnit, location);
+				var token = clang.getToken(cursor.TranslationUnit, loc);
 				if (token != null)
 				{
 					var result = clang.getTokenSpelling(cursor.TranslationUnit, *token).ToString();
 					clang.disposeTokens(cursor.TranslationUnit, token, 1);
-					return result;
+					if (!string.IsNullOrEmpty(result))
+					{
+						return result;
+					}
 				}
+			}
+
+			// clang_getCursorExtent is unreliable for tokens originating
+			// from a macro body — it can return an extent whose end is at
+			// EOF. Instead, construct a minimal zero-width range around the
+			// cursor's exact location and tokenize only that.
+			var minimalRange = CXSourceRange.Create(loc, loc);
+			var tokens = cursor.TranslationUnit.Tokenize(minimalRange);
+
+			if (tokens.Length > 0)
+			{
+				return tokens[0].GetSpelling(cursor.TranslationUnit).ToString();
 			}
 
 			return string.Empty;
